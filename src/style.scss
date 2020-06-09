@@ -1,0 +1,44 @@
+html,body{
+    padding:0;
+    margin:0;
+}
+body{
+    filter: hue-rotate(0deg);
+    .wrapper{
+        padding-top:20px;
+        background-color: #fff1e1;
+    }
+}
+.navbar{
+    background-color: rgba(0, 0, 0, 0.185);
+    border-radius: 5px;
+}
+.completed-li{
+    background-color: gray !important;
+    *{
+        color: white;   
+    }
+    h5,p{
+        text-decoration-line: line-through;
+    }
+}
+.todo-item:not(.completed-li){
+    &.red{
+        background-color: hsl(0,50%,65%);
+    }   
+    &.green{
+        background-color: hsl(120,50%,65%);
+    }
+    &.blue{
+        background-color: hsl(240,50%,65%);
+    }
+    &.white{
+        background-color: white;
+    }
+}
+.edit-hide{
+    display: none;
+}
+.edit-show{
+    display: inline-block;
+}
