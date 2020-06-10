@@ -27,7 +27,7 @@ const getTodoHtml = (args = {}) => {
         </button>
         <div class="dropdown-menu p-2 flex-column" aria-labelledby="dropdownMenuItem1">
             ${args.complited !== true ? `<button type="button" class="btn btn-success w-100 compl-btn">Complete</button>` : ``}
-            ${true !== true ? `<button type="button"  class="btn btn-info w-100 my-2">Edit</button>` : ``}
+            ${args.complited !== true ? `<button type="button"  class="btn btn-info w-100 my-2 edit-btn">Edit</button>` : ``}
             <button type="button" class="btn btn-danger w-100 delete-btn">Delete</button>
         </div>
     </div>
@@ -41,24 +41,30 @@ let editId = ""
 
 /* Render All Todos */
 const renderTodos = () => {
-    console.log(todos)
-    if (todos.length > 0) {
-        q('.todo-title').innerHTML = `
-        ToDo<span style="color:darkred">(${todos.filter(el => el.complited !== true).length})</span>
-        `
-        q('.todo-comp-title').innerHTML = `
-        Completed<span style="color:darkgreen">(${todos.filter(el => el.complited === true).length})</span>
-        `
-    }
+    q('.todo-title').innerHTML = `
+    ToDo<span style="color:darkred">(${todos.filter(el => el.complited !== true).length})</span>
+    `
+    q('.todo-comp-title').innerHTML = `
+    Completed<span style="color:darkgreen">(${todos.filter(el => el.complited === true).length})</span>
+    `
     localStorage.setItem('todos', JSON.stringify(todos))
     q('#currentTasks').innerHTML = ''
     q('#completedTasks').innerHTML = ''
-    todos.filter(v => v.complited !== true).forEach(todo => {
+    /* Sorter */
+    let todosiq = todos.map(v=>v)
+    if (global.sorter !== undefined) {
+        todosiq.sort((a,b)=>(a.seconds-b.seconds)*global.sorter)
+    }
+    //Draw template
+    todosiq.filter(v => v.complited !== true).forEach(todo => {
         q('#currentTasks').innerHTML += getTodoHtml({...todo})
     })
-    todos.filter(v => v.complited === true).forEach(todo => {
+    todosiq.filter(v => v.complited === true).forEach(todo => {
         q('#completedTasks').innerHTML += getTodoHtml({...todo})
     })
+    //No todos content
+    if (todos.length === 0) q('#currentTasks').innerHTML += `<h2><i style="color: red">There are no todos</i></h2>`
+    //Todos controll
     qa('.compl-btn').forEach(todo => {
         todo.onclick = function(){
             const id = this.parentNode.parentNode.parentNode.dataset.id
@@ -73,11 +79,33 @@ const renderTodos = () => {
             renderTodos()
         }
     })
+    /* Edit btn. Transform add-todos to edit-todos modal frame */
+    qa('.edit-btn').forEach(todo => {
+        todo.onclick = function(){
+            edit = true
+            qa('.edit-show').forEach(el => el.style.display = 'none')
+            qa('.edit-hide').forEach(el => el.style.display = 'inline-block')
+            q('.addTaskBtn').click()
+            editId = this.parentNode.parentNode.parentNode.dataset.id
+            const form = q('form')
+            const id = editId
+            let index
+            todos.forEach((v,i) => {
+                if (v.id === id) index=i
+            })
+            form.inputTitle.value = todos[index].title || 'Title'
+            form.inputText.value = todos[index].text || 'Put something'
+            form.gridRadios.value = todos[index].priority
+            form.color.value = todos[index].color
+        }
+    })
+    /* Filter fixer for todos with definite color */
     qa('.todo-item.red').forEach(item => item.style.backgroundColor = `hsl(${q('#colorRange').value * -1.8},50%,65%)`)
     qa('.todo-item.green').forEach(item => item.style.backgroundColor = `hsl(${q('#colorRange').value * -1.8 + 120},50%,65%)`)
     qa('.todo-item.blue').forEach(item => item.style.backgroundColor = `hsl(${q('#colorRange').value * -1.8 + 240},50%,65%)`)
 }
 
+//Load Todos from localStorage
 let todos = (localStorage.todos == undefined) ? [
     /* 
     {
@@ -85,8 +113,9 @@ let todos = (localStorage.todos == undefined) ? [
         priority : String,
         text : String,
         color : String,
-        date : Date,
+        date : String,
         complited : Boolean
+        seconds : Number
     }
     */
 ] : JSON.parse(localStorage.todos)
@@ -102,7 +131,8 @@ const addTodo = (e) => {
         priority: form.gridRadios.value,
         date : new Date().getHours()+':'+new Date().getMinutes()+' '+ new Date().toLocaleDateString(),
         color: form.color.value,
-        complited : false
+        complited : false,
+        seconds: new Date().getTime()
     })
     form.reset()
     q('[data-dismiss="modal"]').click()
@@ -111,24 +141,35 @@ const addTodo = (e) => {
 /* Edit Todo */
 const editTodo = (e) => {
     const form = e.target
-    e.preventDefault()
-    todos.push({
-        id: 'id'+new Date().getTime(),
-        title: form.inputTitle.value,
-        text: form.inputText.value,
-        priority: form.gridRadios.value,
-        date : new Date().getHours()+':'+new Date().getMinutes()+' '+ new Date().toLocaleDateString(),
-        color: form.color.value,
-        complited : false
+    const id = editId
+    let index
+    todos.forEach((v,i) => {
+        if (v.id === id) index=i
     })
-    form.reset()
-    edit = false
+    e.preventDefault()
     q('[data-dismiss="modal"]').click()
+    todos[index].title = form.inputTitle.value
+    todos[index].text = form.inputText.value
+    todos[index].color = form.color.value
+    todos[index].priority = form.gridRadios.value
+    edit = false
+    form.reset()
     renderTodos()
 }
+/* Save JSON */
+function downloadObjectAsJson(exportObj){
+    var dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(exportObj));
+    var downloadAnchorNode = document.createElement('a');
+    downloadAnchorNode.setAttribute("href",     dataStr);
+    downloadAnchorNode.setAttribute("download", "mytodos.json");
+    document.body.appendChild(downloadAnchorNode); // firefox
+    downloadAnchorNode.click();
+    downloadAnchorNode.remove();
+  }
 //Scripts
 window.onload = () => {
     //Presets 
+    if (localStorage.sorter != undefined) global.sorter = Number(localStorage.sorter)
     if (localStorage.todos != undefined) renderTodos()
     if (localStorage.color != undefined) {
         q('body').style.filter = `hue-rotate(${Number(localStorage.color) * 1.8 }deg)`
@@ -140,13 +181,24 @@ window.onload = () => {
     }
 
     //Events
-    q('form').onsubmit = function() {
-        if (edit === true) editTodo(event)
-        if (edit !== true) addTodo(event)
+        /* Edit | Add todo switcher */
+    q('.addTaskBtn').onmouseenter = () => {
+        edit = false
+        q('form').reset()
+        qa('.edit-show').forEach(el => el.style.display = 'inline-block')
+        qa('.edit-hide').forEach(el => el.style.display = 'none')
     }
+    /* Edit | Add todo submiter */
+    q('form').onsubmit = function() {
+        if (edit === true) {
+            editTodo(event)
+        } else {
+            addTodo(event)
+        }
+    }
+    /* Color theme handler */
     function changeRange() {
         q('body').style.filter = `hue-rotate(${event.target.value * 1.8 }deg)`
-        cl(`hsl(${event.target.value * -1.8},50%,65%)`)
         qa('.todo-item.red').forEach(item => item.style.backgroundColor = `hsl(${event.target.value * -1.8},50%,65%)`)
         qa('.todo-item.green').forEach(item => item.style.backgroundColor = `hsl(${event.target.value * -1.8 + 120},50%,65%)`)
         qa('.todo-item.blue').forEach(item => item.style.backgroundColor = `hsl(${event.target.value * -1.8 + 240},50%,65%)`)
@@ -154,4 +206,30 @@ window.onload = () => {
     }
     q('#colorRange').onchange = changeRange
     q('#colorRange').oninput = changeRange
+    /* Sorter event */
+    q('.directTodo').onclick = () => {
+        global.sorter = -1
+        localStorage.setItem('sorter', -1)
+        renderTodos()
+    }
+    q('.reverseTodo').onclick = () => {
+        global.sorter = 1
+        localStorage.setItem('sorter', 1)
+        renderTodos()
+    }
+    /* Save todos to JSON file*/
+    q('.setbtn.save').onclick = () => {
+        downloadObjectAsJson(todos)
+    }
+    /* Load todos from JSON file*/
+    q('.setbtn.load').onchange = function(){
+        const file = this.files[0]
+        const fr = new FileReader()
+        fr.addEventListener("load", e => {
+            q('#dropdownMenuSettings').click()
+            todos = JSON.parse(fr.result)
+            renderTodos()
+        });
+        fr.readAsText(file)
+    }
 }
